@@ -91,38 +91,50 @@ export default function OrdersBoard() {
   }, [isSuperadmin])
 
   // Pedidos de HOY (los entregados salen del tablero activo al día siguiente)
-  useEffect(() => {
+  async function fetchOrders({ silent } = {}) {
     if (!restaurantId) {
       setOrders([])
+      setItemsByOrder({})
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (!silent) setLoading(true)
 
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
 
-    ;(async () => {
-      const { data: orderRows, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .gte('created_at', startOfToday.toISOString())
-        .order('created_at', { ascending: false })
+    const { data: orderRows, error: ordersError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .gte('created_at', startOfToday.toISOString())
+      .order('created_at', { ascending: false })
 
-      if (ordersError) {
-        setError(ordersError.message)
-        setOrders([])
-        setLoading(false)
-        return
-      }
-
-      setOrders(orderRows ?? [])
-      loadItems(orderRows?.map((o) => o.id) ?? [])
+    if (ordersError) {
+      if (!silent) setError(ordersError.message)
+      setOrders([])
       setLoading(false)
-    })()
+      return
+    }
+
+    setOrders(orderRows ?? [])
+    loadItems(orderRows?.map((o) => o.id) ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchOrders()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, reload])
+
+  // Respaldo si el WebSocket de Realtime no conecta (proxy corporativo, etc.):
+  // re-carga silenciosa vía REST para que el tablero siga vivo.
+  useEffect(() => {
+    if (!restaurantId) return
+    const interval = setInterval(() => fetchOrders({ silent: true }), 30000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId])
 
   async function loadItems(orderIds) {
     if (orderIds.length === 0) {
@@ -177,7 +189,11 @@ export default function OrdersBoard() {
           }
         }
       )
-      .subscribe()
+      .subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('[realtime] canal del tablero:', status, err ?? '')
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
@@ -201,6 +217,9 @@ export default function OrdersBoard() {
       setError(updateError.message)
       return
     }
+
+    // Actualización optimista: la tarjeta se mueve ya, sin depender del WebSocket
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: next } : o)))
 
     broadcastStatus(order.id, next)
   }
