@@ -23,9 +23,14 @@ function TempHome() {
         Plataforma de pedidos para restaurantes. El proyecto está en construcción —
         aquí irá la landing pública del restaurante.
       </p>
-      <Button variant="primary" onClick={() => navigate('/login')}>
-        Ingreso administradores
-      </Button>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Button variant="brand" onClick={() => navigate('/seguimiento')}>
+          Seguimiento de mi pedido
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/login')}>
+          Ingreso administradores
+        </Button>
+      </div>
     </main>
   )
 }

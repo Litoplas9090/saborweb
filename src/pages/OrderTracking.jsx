@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { money, shortOrderId } from '../lib/format.js'
@@ -35,6 +35,7 @@ export default function OrderTracking() {
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const prevStatuses = useRef({}) // para detectar transiciones en los refrescos silenciosos
 
   /* ---------- Desbloqueo de audio (gesto del usuario) ---------- */
 
@@ -46,10 +47,12 @@ export default function OrderTracking() {
 
   /* ---------- Consulta de pedidos por teléfono ---------- */
 
-  async function search(phoneValue) {
-    setLoading(true)
-    setError(null)
-    setSearched(true)
+  async function loadOrders(phoneValue, { silent } = {}) {
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+      setSearched(true)
+    }
     localStorage.setItem(PHONE_KEY, phoneValue)
 
     const { data: orderRows, error: rpcError } = await supabase.rpc('get_my_orders', {
@@ -57,15 +60,28 @@ export default function OrderTracking() {
     })
 
     if (rpcError) {
-      setError('No pudimos consultar tus pedidos. Intenta de nuevo.')
-      setOrders([])
-      setItemsByOrder({})
+      if (!silent) {
+        setError('No pudimos consultar tus pedidos. Intenta de nuevo.')
+        setOrders([])
+        setItemsByOrder({})
+      }
       setLoading(false)
       return
     }
 
     const rows = orderRows ?? []
     setOrders(rows)
+
+    // En refrescos silenciosos, alertar si un pedido acaba de pasar a "preparado"
+    if (silent) {
+      for (const row of rows) {
+        const before = prevStatuses.current[row.id]
+        if (row.status === 'preparado' && before && before !== 'preparado') {
+          playAlertSound()
+        }
+      }
+    }
+    prevStatuses.current = Object.fromEntries(rows.map((r) => [r.id, r.status]))
 
     // Platos de cada pedido (RPC get_order_items incluye el nombre del plato)
     const grouped = {}
@@ -81,9 +97,16 @@ export default function OrderTracking() {
     setLoading(false)
   }
 
+  // Al volver con el teléfono guardado, mostrar los pedidos de inmediato
+  useEffect(() => {
+    const saved = localStorage.getItem(PHONE_KEY)
+    if (saved) loadOrders(saved)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function handleSearch(e) {
     e.preventDefault()
-    search(phone.trim())
+    loadOrders(phone.trim())
   }
 
   /* ---------- Realtime: broadcast "order:{id}" de cada pedido activo ---------- */
@@ -107,6 +130,7 @@ export default function OrderTracking() {
           setOrders((prev) =>
             prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
           )
+          prevStatuses.current[id] = newStatus
 
           // Alerta sonora al pasar a "preparado" (SPEC sección 4)
           if (newStatus === 'preparado') {
@@ -120,6 +144,17 @@ export default function OrderTracking() {
       channels.forEach((c) => supabase.removeChannel(c))
     }
   }, [activeIds])
+
+  // Respaldo si el WebSocket no conecta: refresco silencioso mientras haya
+  // pedidos activos, para que el estado se actualice sin recargar la página.
+  useEffect(() => {
+    if (!searched) return
+    const hasActive = orders.some((o) => o.status !== 'entregado')
+    if (!hasActive) return
+    const interval = setInterval(() => loadOrders(phone, { silent: true }), 20000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched, phone, orders])
 
   /* ---------- Render ---------- */
 

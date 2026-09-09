@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { money, shortOrderId } from '../lib/format.js'
 import Button from '../components/ui/Button.jsx'
@@ -212,6 +212,12 @@ export default function MenuPage() {
             {restaurant.address && (
               <p className="mt-0.5 text-xs text-amber-200">📍 {restaurant.address}</p>
             )}
+            <Link
+              to="/seguimiento"
+              className="mt-2 inline-block rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
+            >
+              📦 ¿Ya pediste? Sigue tu pedido aquí
+            </Link>
           </div>
         </div>
       </header>
