@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../lib/supabase.js'
 import { money, shortOrderId } from '../../lib/format.js'
+import { unlockAudio, playAlertSound } from '../../lib/audio.js'
 import Button from '../../components/ui/Button.jsx'
 import Select from '../../components/ui/Select.jsx'
 import ErrorMessage from '../../components/ui/ErrorMessage.jsx'
@@ -72,6 +73,21 @@ export default function OrdersBoard() {
   const [error, setError] = useState(null)
   const [reload, setReload] = useState(0) // incrementar para reintentar la carga
   const [showDelivered, setShowDelivered] = useState(false)
+  const [soundOn, setSoundOn] = useState(false)
+  const knownIds = useRef(new Set()) // pedidos ya conocidos: detecta llegadas vía polling
+
+  /* ---------- Alerta de nuevo pedido (sonido + vibración) ---------- */
+
+  async function handleActivateSound() {
+    const running = await unlockAudio()
+    setSoundOn(running)
+    if (running) playAlertSound() // confirmación audible
+  }
+
+  function notifyNewOrder() {
+    if ('vibrate' in navigator) navigator.vibrate([300, 150, 300])
+    playAlertSound()
+  }
 
   const visibleStages = showDelivered ? STAGES : STAGES.filter((s) => s !== 'entregado')
 
@@ -117,12 +133,22 @@ export default function OrdersBoard() {
       return
     }
 
-    setOrders(orderRows ?? [])
-    loadItems(orderRows?.map((o) => o.id) ?? [])
+    const rows = orderRows ?? []
+
+    // En refrescos silenciosos, alertar si llegaron pedidos nuevos
+    if (silent) {
+      const arrived = rows.filter((r) => !knownIds.current.has(r.id))
+      if (arrived.length > 0) notifyNewOrder()
+    }
+    rows.forEach((r) => knownIds.current.add(r.id))
+
+    setOrders(rows)
+    loadItems(rows.map((o) => o.id))
     setLoading(false)
   }
 
   useEffect(() => {
+    knownIds.current.clear()
     fetchOrders()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, reload])
@@ -175,6 +201,7 @@ export default function OrdersBoard() {
         },
         (payload) => {
           if (payload.eventType === 'DELETE') {
+            knownIds.current.delete(payload.old.id)
             setOrders((prev) => prev.filter((o) => o.id !== payload.old.id))
             return
           }
@@ -185,6 +212,8 @@ export default function OrdersBoard() {
             return [row, ...prev]
           })
           if (payload.eventType === 'INSERT') {
+            knownIds.current.add(row.id)
+            notifyNewOrder()
             loadItems([row.id])
           }
         }
@@ -242,15 +271,25 @@ export default function OrdersBoard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Pedidos</h1>
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            checked={showDelivered}
-            onChange={(e) => setShowDelivered(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Mostrar entregados de hoy
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          {!soundOn ? (
+            <Button size="sm" variant="outline" onClick={handleActivateSound}>
+              🔕 Activar alertas de nuevo pedido
+            </Button>
+          ) : (
+            <span className="text-xs font-semibold text-green-600">🔊 Alertas activadas</span>
+          )}
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={showDelivered}
+              onChange={(e) => setShowDelivered(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Mostrar entregados de hoy
+          </label>
+        </div>
       </div>
 
       {isSuperadmin && (
