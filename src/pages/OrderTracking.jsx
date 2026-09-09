@@ -35,7 +35,41 @@ export default function OrderTracking() {
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [liveConnected, setLiveConnected] = useState(false)
+  const [alarming, setAlarming] = useState({}) // orderId -> true mientras suena el bucle
   const prevStatuses = useRef({}) // para detectar transiciones en los refrescos silenciosos
+  const alarmLoops = useRef({}) // orderId -> intervalId del bucle de alerta
+
+  /* ---------- Alerta de "preparado": bucle de sonido + vibración ---------- */
+
+  function triggerReadyAlert(orderId) {
+    if (alarmLoops.current[orderId]) return // ya está sonando
+    // Vibración en móviles compatibles (Android/Chrome); iOS y desktop la ignoran
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([400, 150, 400, 150, 800])
+    }
+    playAlertSound()
+    alarmLoops.current[orderId] = setInterval(() => playAlertSound(), 2500)
+    setAlarming((prev) => ({ ...prev, [orderId]: true }))
+  }
+
+  function stopAlarmLoop(orderId) {
+    if (alarmLoops.current[orderId]) {
+      clearInterval(alarmLoops.current[orderId])
+      delete alarmLoops.current[orderId]
+    }
+    setAlarming((prev) => (prev[orderId] ? { ...prev, [orderId]: false } : prev))
+  }
+
+  function handleReceived(orderId) {
+    stopAlarmLoop(orderId)
+  }
+
+  // Limpiar los bucles de alerta al salir de la página
+  useEffect(() => {
+    const loops = alarmLoops.current
+    return () => Object.values(loops).forEach(clearInterval)
+  }, [])
 
   /* ---------- Desbloqueo de audio (gesto del usuario) ---------- */
 
@@ -73,11 +107,14 @@ export default function OrderTracking() {
     setOrders(rows)
 
     // En refrescos silenciosos, alertar si un pedido acaba de pasar a "preparado"
+    // y detener el bucle si el pedido avanzó a otra etapa
     if (silent) {
       for (const row of rows) {
         const before = prevStatuses.current[row.id]
         if (row.status === 'preparado' && before && before !== 'preparado') {
-          playAlertSound()
+          triggerReadyAlert(row.id)
+        } else if (row.status !== 'preparado' && alarmLoops.current[row.id]) {
+          stopAlarmLoop(row.id)
         }
       }
     }
@@ -132,15 +169,23 @@ export default function OrderTracking() {
           )
           prevStatuses.current[id] = newStatus
 
-          // Alerta sonora al pasar a "preparado" (SPEC sección 4)
+          // Alerta en bucle al pasar a "preparado"; se detiene si avanza (SPEC §4)
           if (newStatus === 'preparado') {
-            playAlertSound()
+            triggerReadyAlert(id)
+          } else {
+            stopAlarmLoop(id)
           }
         })
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') setLiveConnected(true)
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            setLiveConnected(false)
+          }
+        })
     )
 
     return () => {
+      setLiveConnected(false)
       channels.forEach((c) => supabase.removeChannel(c))
     }
   }, [activeIds])
@@ -151,7 +196,7 @@ export default function OrderTracking() {
     if (!searched) return
     const hasActive = orders.some((o) => o.status !== 'entregado')
     if (!hasActive) return
-    const interval = setInterval(() => loadOrders(phone, { silent: true }), 20000)
+    const interval = setInterval(() => loadOrders(phone, { silent: true }), 10000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searched, phone, orders])
@@ -169,7 +214,7 @@ export default function OrderTracking() {
             Seguimiento de pedidos
           </h1>
           <p className="mt-1 text-sm text-amber-100">
-            Ingresa el teléfono con el que hiciste tu pedido.
+            Digite el número de teléfono con el cual realizaste tu pedido.
           </p>
         </div>
       </header>
@@ -215,10 +260,18 @@ export default function OrderTracking() {
           </Button>
         </form>
 
+        {searched && !error && (
+          <p className="mt-2 text-xs text-gray-400">
+            {liveConnected
+              ? '🟢 Conexión en vivo activa: los cambios se ven al instante.'
+              : '🟡 Actualización automática cada 10 segundos (mantén esta pestaña abierta).'}
+          </p>
+        )}
+
         <ErrorMessage
           className="mt-4"
           message={error}
-          onRetry={() => search(phone.trim())}
+          onRetry={() => loadOrders(phone.trim())}
         />
 
         {/* Resultados */}
@@ -242,7 +295,11 @@ export default function OrderTracking() {
                 {orders.map((order) => (
                   <li
                     key={order.id}
-                    className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                    className={`rounded-xl border bg-white p-5 shadow-sm ${
+                      alarming[order.id]
+                        ? 'border-green-500 ring-2 ring-green-500 animate-pulse'
+                        : 'border-gray-200'
+                    }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-bold">{shortOrderId(order.id)}</span>
@@ -278,10 +335,10 @@ export default function OrderTracking() {
                         )
                       })}
                     </div>
-                    <div className="mt-1 flex justify-between text-[10px] text-gray-400">
-                      {STAGES.map((s) => (
-                        <span key={s} className="w-6 text-center">
-                          {STAGE_LABEL[s].split(' ')[0]}
+                    <div className="mt-1 flex text-[10px] text-gray-400">
+                      {STAGES.map((s, idx) => (
+                        <span key={s} className="flex-1 text-center">
+                          {idx + 1}. {STAGE_LABEL[s]}
                         </span>
                       ))}
                     </div>
@@ -290,6 +347,17 @@ export default function OrderTracking() {
                       {new Date(order.created_at).toLocaleString()} —{' '}
                       {order.customer_name}
                     </p>
+
+                    {alarming[order.id] && (
+                      <Button
+                        variant="brand"
+                        fullWidth
+                        className="mt-4 !bg-green-600 !py-3 hover:!bg-green-700"
+                        onClick={() => handleReceived(order.id)}
+                      >
+                        ✓ Recibido — detener alerta
+                      </Button>
+                    )}
 
                     <ul className="mt-3 space-y-1 border-t border-dashed border-gray-200 pt-3 text-sm">
                       {(itemsByOrder[order.id] ?? []).map((item, idx) => (
