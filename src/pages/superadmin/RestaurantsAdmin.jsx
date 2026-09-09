@@ -211,7 +211,7 @@ export default function RestaurantsAdmin() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="relative mx-auto max-w-5xl overflow-x-clip px-4 py-8">
+    <main className="relative isolate mx-auto max-w-5xl overflow-x-clip px-4 py-8">
       <Backdrop variant="admin" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -18,7 +18,7 @@ import Backdrop from './components/ui/Backdrop.jsx'
 function TempHome() {
   const navigate = useNavigate()
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
+    <main className="relative isolate flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
       <Backdrop />
       <h1 className="text-4xl font-extrabold tracking-tight">SaborWeb</h1>
       <p className="max-w-md text-gray-600">

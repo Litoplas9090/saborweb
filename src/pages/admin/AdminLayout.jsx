@@ -26,7 +26,7 @@ export default function AdminLayout() {
     }`
 
   return (
-    <div className="relative min-h-screen overflow-x-clip">
+    <div className="relative isolate min-h-screen overflow-x-clip">
       <Backdrop variant="admin" />
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">

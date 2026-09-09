@@ -249,7 +249,7 @@ export default function OrderTracking() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="relative min-h-screen overflow-x-clip pb-10">
+    <main className="relative isolate min-h-screen overflow-x-clip pb-10">
       <Backdrop />
       <header className="bg-amber-600 text-white">
         <div className="mx-auto max-w-2xl px-4 py-8">

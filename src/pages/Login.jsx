@@ -52,7 +52,7 @@ export default function Login() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+    <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden p-6">
       <Backdrop />
       <form
         onSubmit={handleSubmit}

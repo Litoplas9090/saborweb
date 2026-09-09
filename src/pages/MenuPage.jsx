@@ -191,7 +191,7 @@ export default function MenuPage() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="relative min-h-screen overflow-x-clip pb-28">
+    <main className="relative isolate min-h-screen overflow-x-clip pb-28">
       <Backdrop />
       {/* Encabezado del restaurante */}
       <header className="bg-amber-600 text-white">
