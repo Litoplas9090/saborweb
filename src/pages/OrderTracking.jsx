@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import { Spinner } from '../components/ui/Spinner.jsx'
 
 const PHONE_KEY = 'saborweb_phone'
+const LAST_SLUG_KEY = 'saborweb_last_slug'
 
 const STAGES = ['registrado', 'en_preparacion', 'preparado', 'entregado']
 
@@ -37,8 +38,24 @@ export default function OrderTracking() {
   const [error, setError] = useState(null)
   const [liveConnected, setLiveConnected] = useState(false)
   const [alarming, setAlarming] = useState({}) // orderId -> true mientras suena el bucle
+  const [menuSlug, setMenuSlug] = useState(() => localStorage.getItem(LAST_SLUG_KEY) ?? null)
   const prevStatuses = useRef({}) // para detectar transiciones en los refrescos silenciosos
   const alarmLoops = useRef({}) // orderId -> intervalId del bucle de alerta
+
+  // Restaurante del pedido más reciente (para "Volver al menú"); si el RPC no
+  // trae restaurant_id, se queda el último slug visitado guardado en MenuPage
+  useEffect(() => {
+    const restaurantId = orders[0]?.restaurant_id
+    if (!restaurantId) return
+    supabase
+      .from('restaurants')
+      .select('slug')
+      .eq('id', restaurantId)
+      .single()
+      .then(({ data }) => {
+        if (data?.slug) setMenuSlug(data.slug)
+      })
+  }, [orders])
 
   /* ---------- Alerta de "preparado": bucle de sonido + vibración ---------- */
 
@@ -207,9 +224,22 @@ export default function OrderTracking() {
     <main className="min-h-screen bg-gray-50 pb-10">
       <header className="bg-amber-600 text-white">
         <div className="mx-auto max-w-2xl px-4 py-8">
-          <Link to="/" className="text-sm text-amber-200 hover:underline">
-            ← SaborWeb
-          </Link>
+          <div className="flex items-center justify-between">
+            {menuSlug ? (
+              <Link to={`/${menuSlug}`} className="text-sm text-amber-200 hover:underline">
+                ← Volver al menú
+              </Link>
+            ) : (
+              <Link to="/" className="text-sm text-amber-200 hover:underline">
+                ← SaborWeb
+              </Link>
+            )}
+            {menuSlug && (
+              <Link to="/" className="text-sm text-amber-200 hover:underline">
+                Inicio
+              </Link>
+            )}
+          </div>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight">
             Seguimiento de pedidos
           </h1>

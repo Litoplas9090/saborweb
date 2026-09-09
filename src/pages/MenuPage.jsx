@@ -50,6 +50,8 @@ export default function MenuPage() {
       }
 
       setRestaurant(r)
+      // Para que el seguimiento pueda ofrecer "Volver al menú" (Hito 6)
+      localStorage.setItem('saborweb_last_slug', slug)
 
       const { data: m, error: mError } = await supabase
         .from('menu_items')
