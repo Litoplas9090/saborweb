@@ -24,7 +24,6 @@ export default function MenuPage() {
   // Checkout: 'cart' | 'form' | 'success'
   const [step, setStep] = useState('cart')
   const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
   const [orderId, setOrderId] = useState(null)
   const [total, setTotal] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -111,7 +110,7 @@ export default function MenuPage() {
     )
   }
 
-  /* ---------- Checkout (nombre + teléfono → RPC create_order) ---------- */
+  /* ---------- Checkout (solo nombre → RPC create_order) ---------- */
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -120,7 +119,6 @@ export default function MenuPage() {
 
     const { data: newOrderId, error: rpcError } = await supabase.rpc('create_order', {
       p_restaurant_id: restaurant.id,
-      p_customer_phone: customerPhone.trim(),
       p_customer_name: customerName.trim(),
       p_items: cart.map((i) => ({ menu_item_id: i.menu_item_id, quantity: i.qty })),
     })
@@ -136,6 +134,8 @@ export default function MenuPage() {
     setTotal(cartTotal)
     setCart([])
     if (cartKey) localStorage.removeItem(cartKey)
+    // El número corto es la llave de seguimiento: guardarlo y mostrarlo
+    localStorage.setItem('saborweb_order', shortOrderId(newOrderId))
     setStep('success')
   }
 
@@ -144,7 +144,6 @@ export default function MenuPage() {
     setStep('cart')
     setOrderId(null)
     setCustomerName('')
-    setCustomerPhone('')
   }
 
   /* ---------- Agrupar por categoría ---------- */
@@ -333,18 +332,28 @@ export default function MenuPage() {
                   ✅
                 </div>
                 <h2 className="mt-4 text-2xl font-bold">¡Pedido registrado!</h2>
-                <p className="mt-2 text-gray-600">
-                  Tu número de pedido es{' '}
-                  <span className="font-bold text-amber-700">{shortOrderId(orderId)}</span>
+                <p className="mt-2 text-gray-600">Tu número de pedido es:</p>
+                <p className="mt-1 text-4xl font-extrabold tracking-wider text-amber-700">
+                  {shortOrderId(orderId)}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mx-auto mt-3 max-w-xs rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  📌 Guarda este número: es la llave para consultar el estado de tu
+                  pedido cuando quieras.
+                </p>
+                <p className="mt-2 text-sm text-gray-500">
                   Total: <span className="font-semibold">{money(total)}</span> —{' '}
-                  {restaurant.name} te atenderá enseguida. Guarda tu número de pedido
-                  para seguirlo.
+                  {restaurant.name} te atenderá enseguida.
                 </p>
-                <Button variant="brand" size="lg" className="mt-6" onClick={resetFlow}>
-                  Volver al menú
-                </Button>
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <Link to={`/seguimiento?p=${encodeURIComponent(shortOrderId(orderId))}`}>
+                    <Button variant="brand" size="lg">
+                      🔍 Seguir mi pedido
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" onClick={resetFlow}>
+                    Volver al menú
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
@@ -402,11 +411,10 @@ export default function MenuPage() {
                     </Button>
                   </>
                 ) : (
-                  /* ---- Datos del cliente (solo nombre + teléfono) ---- */
+                  /* ---- Datos del cliente (solo nombre) ---- */
                   <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                      Solo necesitamos tu nombre y teléfono. El pago se realiza en el
-                      restaurante.
+                      Solo necesitamos tu nombre. El pago se realiza en el restaurante.
                     </p>
                     <Field label="Tu nombre *" htmlFor="cust-name">
                       <Input
@@ -416,22 +424,6 @@ export default function MenuPage() {
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         placeholder="Ej: Ana Pérez"
-                      />
-                    </Field>
-                    <Field
-                      label="Tu teléfono *"
-                      htmlFor="cust-phone"
-                      hint="Con este número podrás consultar el estado de tu pedido."
-                    >
-                      <Input
-                        id="cust-phone"
-                        accent="amber"
-                        required
-                        type="tel"
-                        minLength={6}
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="Ej: 3001234567"
                       />
                     </Field>
 

@@ -5,7 +5,7 @@
 
 -- ---------- Tipos ----------
 create type public.user_role as enum ('superadmin', 'restaurant_admin', 'customer');
-create type public.order_status as enum ('registrado', 'en_preparacion', 'preparado', 'entregado');
+create type public.order_status as enum ('registrado', 'en_preparacion', 'preparado', 'entregado', 'pagado');
 
 -- ---------- Tablas ----------
 create table public.restaurants (
@@ -44,7 +44,7 @@ create table public.menu_items (
 create table public.orders (
   id uuid primary key default gen_random_uuid(),
   restaurant_id uuid not null references public.restaurants(id) on delete cascade,
-  customer_phone text not null,
+  customer_phone text, -- opcional: el seguimiento se hace por número de pedido
   customer_name text not null,
   total_amount numeric(10,2) not null default 0,
   status public.order_status not null default 'registrado',
@@ -70,6 +70,7 @@ create table public.status_history (
 create index on public.menu_items (restaurant_id);
 create index on public.orders (restaurant_id, created_at desc);
 create index on public.orders (customer_phone);
+create index on public.orders (left(replace(id::text, '-', ''), 8)); -- búsqueda por número corto
 create index on public.order_items (order_id);
 create index on public.status_history (order_id);
 
@@ -190,9 +191,10 @@ create policy "status_history_select_admin" on public.status_history
   ));
 
 -- ---------- Funciones para el cliente final (anónimo) ----------
+-- El cliente se identifica solo por su nombre; el seguimiento del pedido se
+-- hace con el número corto (primeros 8 hex del UUID, ver shortOrderId).
 create or replace function public.create_order(
   p_restaurant_id uuid,
-  p_customer_phone text,
   p_customer_name text,
   p_items jsonb  -- [{"menu_item_id": "uuid", "quantity": 2}, ...]
 )
@@ -203,11 +205,6 @@ declare
   v_item jsonb;
   v_price numeric(10,2);
 begin
-  -- upsert del cliente por teléfono
-  insert into public.profiles (phone, full_name, role)
-  values (p_customer_phone, p_customer_name, 'customer')
-  on conflict (phone) do update set full_name = excluded.full_name;
-
   -- validar restaurante y calcular total
   if not exists (select 1 from public.restaurants where id = p_restaurant_id and is_active) then
     raise exception 'Restaurante no disponible';
@@ -224,8 +221,8 @@ begin
     v_total := v_total + v_price * (v_item->>'quantity')::int;
   end loop;
 
-  insert into public.orders (restaurant_id, customer_phone, customer_name, total_amount)
-  values (p_restaurant_id, p_customer_phone, p_customer_name, v_total)
+  insert into public.orders (restaurant_id, customer_name, total_amount)
+  values (p_restaurant_id, p_customer_name, v_total)
   returning id into v_order_id;
 
   for v_item in select * from jsonb_array_elements(p_items) loop
@@ -237,13 +234,15 @@ begin
   return v_order_id;
 end; $$;
 
-create or replace function public.get_my_orders(p_phone text)
+-- Consulta del pedido por su número corto (los 8 hex visibles en la app,
+-- con o sin '#'). SECURITY DEFINER para no abrir SELECT anónimo en orders.
+create or replace function public.get_order_by_short(p_short_id text)
 returns setof public.orders
 language sql stable security definer set search_path = public as $$
   select * from public.orders
-  where customer_phone = p_phone
+  where left(replace(id::text, '-', ''), 8) = upper(trim(both '# ' from p_short_id))
   order by created_at desc
-  limit 50;
+  limit 1;
 $$;
 
 create or replace function public.get_order_items(p_order_id uuid)

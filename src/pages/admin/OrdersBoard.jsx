@@ -9,13 +9,14 @@ import Select from '../../components/ui/Select.jsx'
 import ErrorMessage from '../../components/ui/ErrorMessage.jsx'
 import { LoadingMessage } from '../../components/ui/Spinner.jsx'
 
-// Flujo del pedido (SPEC sección 4)
-const STAGES = ['registrado', 'en_preparacion', 'preparado', 'entregado']
+// Flujo del pedido (SPEC sección 4 + etapa de pago)
+const STAGES = ['registrado', 'en_preparacion', 'preparado', 'entregado', 'pagado']
 
 const NEXT_STAGE = {
   registrado: 'en_preparacion',
   en_preparacion: 'preparado',
   preparado: 'entregado',
+  entregado: 'pagado',
 }
 
 const STAGE_LABEL = {
@@ -23,12 +24,14 @@ const STAGE_LABEL = {
   en_preparacion: 'En preparación',
   preparado: 'Preparado',
   entregado: 'Entregado',
+  pagado: 'Pagado',
 }
 
 const ADVANCE_LABEL = {
   registrado: '→ Preparar',
   en_preparacion: '→ Marcar preparado',
   preparado: '→ Entregar',
+  entregado: '→ Marcar pagado',
 }
 
 const STAGE_COLORS = {
@@ -36,6 +39,7 @@ const STAGE_COLORS = {
   en_preparacion: 'border-amber-400 bg-amber-50 text-amber-700',
   preparado: 'border-green-400 bg-green-50 text-green-700',
   entregado: 'border-gray-300 bg-gray-100 text-gray-500',
+  pagado: 'border-emerald-500 bg-emerald-100 text-emerald-800',
 }
 
 // Emite el broadcast que el cliente escucha en el canal "order:{id}" (Hito 6)
@@ -76,20 +80,30 @@ export default function OrdersBoard() {
   const [soundOn, setSoundOn] = useState(false)
   const knownIds = useRef(new Set()) // pedidos ya conocidos: detecta llegadas vía polling
 
-  /* ---------- Alerta de nuevo pedido (sonido + vibración) ---------- */
+  /* ---------- Sonido activado por defecto: se desbloquea con el primer gesto
+  del usuario (cualquier clic o tecla en la página) ---------- */
 
-  async function handleActivateSound() {
-    const running = await unlockAudio()
-    setSoundOn(running)
-    if (running) playAlertSound() // confirmación audible
-  }
+  useEffect(() => {
+    const unlock = async () => {
+      const running = await unlockAudio()
+      setSoundOn(running)
+    }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
 
   function notifyNewOrder() {
     if ('vibrate' in navigator) navigator.vibrate([300, 150, 300])
     playAlertSound()
   }
 
-  const visibleStages = showDelivered ? STAGES : STAGES.filter((s) => s !== 'entregado')
+  const visibleStages = showDelivered
+    ? STAGES
+    : STAGES.filter((s) => s !== 'entregado' && s !== 'pagado')
 
   /* ---------- Carga inicial ---------- */
 
@@ -272,13 +286,11 @@ export default function OrdersBoard() {
         <h1 className="text-2xl font-bold">Pedidos</h1>
 
         <div className="flex flex-wrap items-center gap-3">
-          {!soundOn ? (
-            <Button size="sm" variant="outline" onClick={handleActivateSound}>
-              🔕 Activar alertas de nuevo pedido
-            </Button>
-          ) : (
-            <span className="text-xs font-semibold text-green-600">🔊 Alertas activadas</span>
-          )}
+          <span
+            className={`text-xs font-semibold ${soundOn ? 'text-green-600' : 'text-gray-400'}`}
+          >
+            {soundOn ? '🔊 Alertas activadas' : '🔕 Haz clic en la página para activar el sonido'}
+          </span>
 
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
             <input
@@ -287,7 +299,7 @@ export default function OrdersBoard() {
               onChange={(e) => setShowDelivered(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            Mostrar entregados de hoy
+            Mostrar entregados y pagados de hoy
           </label>
         </div>
       </div>

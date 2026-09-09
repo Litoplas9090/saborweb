@@ -9,7 +9,7 @@ import ErrorMessage from '../components/ui/ErrorMessage.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { Spinner } from '../components/ui/Spinner.jsx'
 
-const PHONE_KEY = 'saborweb_phone'
+const ORDER_KEY = 'saborweb_order' // último número de pedido consultado
 const LAST_SLUG_KEY = 'saborweb_last_slug'
 
 const STAGES = ['registrado', 'en_preparacion', 'preparado']
@@ -18,8 +18,9 @@ const STAGE_LABEL = {
   registrado: 'Registrado',
   en_preparacion: 'En preparación',
   preparado: '¡Preparado!',
-  // "entregado" es la etapa final interna del restaurante: solo se muestra en el badge
+  // "entregado"/"pagado" son cierres internos del restaurante: solo badge
   entregado: 'Entregado',
+  pagado: 'Pagado',
 }
 
 const STAGE_BADGE = {
@@ -27,10 +28,11 @@ const STAGE_BADGE = {
   en_preparacion: 'bg-amber-100 text-amber-700',
   preparado: 'bg-green-100 text-green-700',
   entregado: 'bg-gray-200 text-gray-500',
+  pagado: 'bg-gray-200 text-gray-500',
 }
 
 export default function OrderTracking() {
-  const [phone, setPhone] = useState(() => localStorage.getItem(PHONE_KEY) ?? '')
+  const [orderNo, setOrderNo] = useState('')
   const [soundOn, setSoundOn] = useState(false)
   const [orders, setOrders] = useState([])
   const [itemsByOrder, setItemsByOrder] = useState({})
@@ -89,26 +91,39 @@ export default function OrderTracking() {
     return () => Object.values(loops).forEach(clearInterval)
   }, [])
 
-  /* ---------- Desbloqueo de audio (gesto del usuario) ---------- */
+  /* ---------- Sonido activado por defecto: se desbloquea con el primer gesto
+  del usuario (teclear el número o hacer clic ya es suficiente) ---------- */
 
-  async function handleActivateSound() {
-    const running = await unlockAudio()
-    setSoundOn(running)
-    if (running) playAlertSound() // confirmación audible
+  useEffect(() => {
+    const unlock = async () => {
+      const running = await unlockAudio()
+      setSoundOn(running)
+    }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
+  /* ---------- Consulta del pedido por su número corto ---------- */
+
+  // Normaliza lo que teclea el usuario: acepta "#A1B2C3D4", "a1b2c3d4", etc.
+  function normalizeOrderNo(value) {
+    return value.trim().replace(/^#/, '').toUpperCase()
   }
 
-  /* ---------- Consulta de pedidos por teléfono ---------- */
-
-  async function loadOrders(phoneValue, { silent } = {}) {
+  async function loadOrders(orderNumber, { silent } = {}) {
     if (!silent) {
       setLoading(true)
       setError(null)
       setSearched(true)
     }
-    localStorage.setItem(PHONE_KEY, phoneValue)
+    localStorage.setItem(ORDER_KEY, orderNumber)
 
-    const { data: orderRows, error: rpcError } = await supabase.rpc('get_my_orders', {
-      p_phone: phoneValue,
+    const { data: orderRows, error: rpcError } = await supabase.rpc('get_order_by_short', {
+      p_short_id: orderNumber,
     })
 
     if (rpcError) {
@@ -152,22 +167,31 @@ export default function OrderTracking() {
     setLoading(false)
   }
 
-  // Al volver con el teléfono guardado, mostrar los pedidos de inmediato
+  // Al llegar con ?p=#NUMERO (desde la confirmación del pedido) o con el último
+  // número guardado, consultar de inmediato
   useEffect(() => {
-    const saved = localStorage.getItem(PHONE_KEY)
-    if (saved) loadOrders(saved)
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('p')
+    const saved = fromUrl ?? localStorage.getItem(ORDER_KEY)
+    if (saved) {
+      const normalized = normalizeOrderNo(saved)
+      setOrderNo(normalized)
+      loadOrders(normalized)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleSearch(e) {
     e.preventDefault()
-    loadOrders(phone.trim())
+    const normalized = normalizeOrderNo(orderNo)
+    setOrderNo(normalized)
+    loadOrders(normalized)
   }
 
   /* ---------- Realtime: broadcast "order:{id}" de cada pedido activo ---------- */
 
   const activeIds = orders
-    .filter((o) => o.status !== 'entregado')
+    .filter((o) => o.status !== 'entregado' && o.status !== 'pagado')
     .map((o) => o.id)
     .join(',')
 
@@ -212,12 +236,14 @@ export default function OrderTracking() {
   // pedidos activos, para que el estado se actualice sin recargar la página.
   useEffect(() => {
     if (!searched) return
-    const hasActive = orders.some((o) => o.status !== 'entregado')
+    const hasActive = orders.some(
+      (o) => o.status !== 'entregado' && o.status !== 'pagado'
+    )
     if (!hasActive) return
-    const interval = setInterval(() => loadOrders(phone, { silent: true }), 10000)
+    const interval = setInterval(() => loadOrders(orderNo, { silent: true }), 10000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searched, phone, orders])
+  }, [searched, orderNo, orders])
 
   /* ---------- Render ---------- */
 
@@ -240,41 +266,30 @@ export default function OrderTracking() {
             Seguimiento de pedidos
           </h1>
           <p className="mt-1 text-sm text-amber-100">
-            Digite el número de teléfono con el cual realizaste tu pedido.
+            Digite el número de pedido que recibiste al confirmar tu compra.
           </p>
         </div>
       </header>
 
       <div className="mx-auto max-w-2xl px-4">
-        {/* Botón de desbloqueo de audio */}
-        {!soundOn && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-800">
-              🔕 Activa el sonido para recibir una alerta cuando tu pedido esté listo.
-            </p>
-            <Button variant="brand" onClick={handleActivateSound}>
-              Activar alertas de sonido
-            </Button>
-          </div>
-        )}
+        {/* Sonido y vibración activados por defecto (se desbloquean con el primer gesto) */}
         {soundOn && (
           <p className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            🔊 Alertas de sonido activadas. Te avisaremos cuando tu pedido esté preparado
-            (mantén esta pestaña abierta).
+            🔊 Notificaciones de sonido y vibración activadas.
           </p>
         )}
 
-        {/* Formulario de teléfono */}
+        {/* Formulario de número de pedido */}
         <form onSubmit={handleSearch} className="mt-6 flex flex-col gap-2 sm:flex-row">
           <Input
             accent="amber"
-            type="tel"
+            type="text"
             required
-            minLength={6}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Ej: 3001234567"
-            className="!px-4 !py-3 sm:flex-1"
+            minLength={4}
+            value={orderNo}
+            onChange={(e) => setOrderNo(e.target.value)}
+            placeholder="Ej: #A1B2C3D4"
+            className="!px-4 !py-3 uppercase sm:flex-1"
           />
           <Button
             variant="brand"
@@ -282,7 +297,7 @@ export default function OrderTracking() {
             disabled={loading}
             className="shrink-0 !px-5 !py-3 whitespace-nowrap"
           >
-            {loading ? 'Buscando…' : 'Ver mis pedidos'}
+            {loading ? 'Buscando…' : 'Ver mi pedido'}
           </Button>
         </form>
 
@@ -297,14 +312,14 @@ export default function OrderTracking() {
         <ErrorMessage
           className="mt-4"
           message={error}
-          onRetry={() => loadOrders(phone.trim())}
+          onRetry={() => loadOrders(normalizeOrderNo(orderNo))}
         />
 
         {/* Resultados */}
         {loading && (
           <p className="mt-6 flex items-center gap-2 text-sm text-gray-500">
             <Spinner />
-            Consultando tus pedidos…
+            Consultando tu pedido…
           </p>
         )}
 
@@ -314,7 +329,7 @@ export default function OrderTracking() {
             {orders.length === 0 ? (
               <EmptyState
                 className="mt-6"
-                message="No encontramos pedidos registrados con este número de teléfono."
+                message="No encontramos ningún pedido con ese número. Verifica el número e intenta de nuevo."
               />
             ) : (
               <ul className="mt-6 space-y-4">
@@ -339,11 +354,10 @@ export default function OrderTracking() {
                     {/* Indicador de progreso por etapas */}
                     <div className="mt-4 flex items-center">
                       {STAGES.map((stage, idx) => {
-                        // "entregado" (cierre interno del restaurante) se dibuja completado
-                        const currentIdx =
-                          order.status === 'entregado'
-                            ? STAGES.length - 1
-                            : STAGES.indexOf(order.status)
+                        // "entregado"/"pagado" (cierres internos) se dibujan completados
+                        const currentIdx = ['entregado', 'pagado'].includes(order.status)
+                          ? STAGES.length - 1
+                          : STAGES.indexOf(order.status)
                         const reached = idx <= currentIdx
                         return (
                           <div key={stage} className="flex flex-1 items-center">
