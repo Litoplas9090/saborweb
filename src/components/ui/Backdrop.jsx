@@ -37,28 +37,18 @@ export default function Backdrop({ variant = 'warm' }) {
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-b from-amber-50 via-orange-50 to-amber-100"
     >
-      {/* bokeh cálido en deriva lenta */}
-      <div className="sw-drift absolute -top-24 left-8 h-80 w-80 rounded-full bg-amber-300/30 blur-3xl" />
-      <div className="sw-drift-slow absolute right-0 top-1/4 h-96 w-96 rounded-full bg-orange-300/25 blur-3xl" />
+      {/* bokeh cálido en deriva lenta (baja opacidad: ambiente sin restar legibilidad) */}
+      <div className="sw-drift absolute -top-24 left-8 h-80 w-80 rounded-full bg-amber-300/20 blur-3xl" />
+      <div className="sw-drift-slow absolute right-0 top-1/4 h-96 w-96 rounded-full bg-orange-300/15 blur-3xl" />
       <div
-        className="sw-drift absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-yellow-200/40 blur-3xl"
+        className="sw-drift absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-yellow-200/25 blur-3xl"
         style={{ animationDelay: '-9s' }}
-      />
-      {/* vapor de cocina que asciende */}
-      <div className="sw-steam absolute bottom-16 left-[15%] h-24 w-6 rounded-full bg-white/60 blur-md" />
-      <div
-        className="sw-steam absolute bottom-24 left-[19%] h-28 w-5 rounded-full bg-white/50 blur-md"
-        style={{ animationDelay: '-3s' }}
-      />
-      <div
-        className="sw-steam absolute bottom-16 right-[20%] h-24 w-6 rounded-full bg-white/60 blur-md"
-        style={{ animationDelay: '-5s' }}
       />
       {/* ingredientes flotando (muy tenues) */}
       {FOOD_FLOATS.map((f) => (
         <span
           key={f.icon}
-          className="sw-float absolute select-none leading-none opacity-[0.06]"
+          className="sw-float absolute select-none leading-none opacity-[0.05]"
           style={{
             top: f.top,
             left: f.left,
