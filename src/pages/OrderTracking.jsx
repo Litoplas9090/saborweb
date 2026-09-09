@@ -8,6 +8,7 @@ import Input from '../components/ui/Input.jsx'
 import ErrorMessage from '../components/ui/ErrorMessage.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { Spinner } from '../components/ui/Spinner.jsx'
+import Backdrop from '../components/ui/Backdrop.jsx'
 
 const ORDER_KEY = 'saborweb_order' // último número de pedido consultado
 const LAST_SLUG_KEY = 'saborweb_last_slug'
@@ -248,7 +249,8 @@ export default function OrderTracking() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-10">
+    <main className="relative min-h-screen overflow-x-clip pb-10">
+      <Backdrop />
       <header className="bg-amber-600 text-white">
         <div className="mx-auto max-w-2xl px-4 py-8">
           <div>

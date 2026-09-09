@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import Button from '../../components/ui/Button.jsx'
+import Backdrop from '../../components/ui/Backdrop.jsx'
 
 const navItems = [
   { to: '/admin', label: 'Menú', end: true },
@@ -25,7 +26,8 @@ export default function AdminLayout() {
     }`
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen overflow-x-clip">
+      <Backdrop variant="admin" />
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>

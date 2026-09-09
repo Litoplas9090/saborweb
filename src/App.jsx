@@ -12,12 +12,14 @@ import Dashboard from './pages/admin/Dashboard.jsx'
 import RestaurantsAdmin from './pages/superadmin/RestaurantsAdmin.jsx'
 import MenuPage from './pages/MenuPage.jsx'
 import OrderTracking from './pages/OrderTracking.jsx'
+import Backdrop from './components/ui/Backdrop.jsx'
 
 // Ruta temporal de arranque (Hito 4: landing pública del restaurante /:slug)
 function TempHome() {
   const navigate = useNavigate()
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+    <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
+      <Backdrop />
       <h1 className="text-4xl font-extrabold tracking-tight">SaborWeb</h1>
       <p className="max-w-md text-gray-600">
         Plataforma de pedidos para restaurantes. El proyecto está en construcción —

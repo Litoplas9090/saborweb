@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth, pathForRole } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import Button from '../components/ui/Button.jsx'
+import Backdrop from '../components/ui/Backdrop.jsx'
 import Field from '../components/ui/Field.jsx'
 import Input from '../components/ui/Input.jsx'
 import ErrorMessage from '../components/ui/ErrorMessage.jsx'
@@ -51,7 +52,8 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      <Backdrop />
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm space-y-5 rounded-2xl bg-white p-8 shadow-md"

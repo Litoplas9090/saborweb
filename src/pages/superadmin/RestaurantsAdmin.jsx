@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../lib/supabase.js'
 import Button from '../../components/ui/Button.jsx'
+import Backdrop from '../../components/ui/Backdrop.jsx'
 import Field from '../../components/ui/Field.jsx'
 import Input from '../../components/ui/Input.jsx'
 import Textarea from '../../components/ui/Textarea.jsx'
@@ -210,7 +211,8 @@ export default function RestaurantsAdmin() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="relative mx-auto max-w-5xl overflow-x-clip px-4 py-8">
+      <Backdrop variant="admin" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Superadmin</h1>

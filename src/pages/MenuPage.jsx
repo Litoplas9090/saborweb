@@ -8,6 +8,7 @@ import Input from '../components/ui/Input.jsx'
 import ErrorMessage from '../components/ui/ErrorMessage.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import { PageLoading } from '../components/ui/Spinner.jsx'
+import Backdrop from '../components/ui/Backdrop.jsx'
 
 export default function MenuPage() {
   const { slug } = useParams()
@@ -190,7 +191,8 @@ export default function MenuPage() {
   /* ---------- Render ---------- */
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-28">
+    <main className="relative min-h-screen overflow-x-clip pb-28">
+      <Backdrop />
       {/* Encabezado del restaurante */}
       <header className="bg-amber-600 text-white">
         <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-8">
