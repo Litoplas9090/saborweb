@@ -236,11 +236,12 @@ end; $$;
 
 -- Consulta del pedido por su número corto (los 8 hex visibles en la app,
 -- con o sin '#'). SECURITY DEFINER para no abrir SELECT anónimo en orders.
+-- Nota: la comparación va en minúsculas (Postgres distingue mayúsculas).
 create or replace function public.get_order_by_short(p_short_id text)
 returns setof public.orders
 language sql stable security definer set search_path = public as $$
   select * from public.orders
-  where left(replace(id::text, '-', ''), 8) = upper(trim(both '# ' from p_short_id))
+  where lower(left(replace(id::text, '-', ''), 8)) = lower(trim(both '# ' from p_short_id))
   order by created_at desc
   limit 1;
 $$;
