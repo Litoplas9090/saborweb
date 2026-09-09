@@ -76,7 +76,6 @@ export default function OrdersBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [reload, setReload] = useState(0) // incrementar para reintentar la carga
-  const [showDelivered, setShowDelivered] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const knownIds = useRef(new Set()) // pedidos ya conocidos: detecta llegadas vía polling
 
@@ -100,10 +99,6 @@ export default function OrdersBoard() {
     if ('vibrate' in navigator) navigator.vibrate([300, 150, 300])
     playAlertSound()
   }
-
-  const visibleStages = showDelivered
-    ? STAGES
-    : STAGES.filter((s) => s !== 'entregado' && s !== 'pagado')
 
   /* ---------- Carga inicial ---------- */
 
@@ -291,16 +286,6 @@ export default function OrdersBoard() {
           >
             {soundOn ? '🔊 Alertas activadas' : '🔕 Haz clic en la página para activar el sonido'}
           </span>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={showDelivered}
-              onChange={(e) => setShowDelivered(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            Mostrar entregados y pagados de hoy
-          </label>
         </div>
       </div>
 
@@ -333,11 +318,11 @@ export default function OrdersBoard() {
       {loading ? (
         <LoadingMessage label="Cargando pedidos…" />
       ) : (
-        <div className="mt-6 flex snap-x gap-4 overflow-x-auto pb-4">
-          {visibleStages.map((stage) => {
+        <div className="mt-6 flex snap-x gap-3 overflow-x-auto pb-4">
+          {STAGES.map((stage) => {
             const stageOrders = orders.filter((o) => o.status === stage)
             return (
-              <div key={stage} className="w-72 flex-shrink-0 snap-start">
+              <div key={stage} className="min-w-[200px] flex-1 snap-start">
                 <div
                   className={`flex items-center justify-between rounded-t-xl border px-4 py-3 ${STAGE_COLORS[stage]}`}
                 >
