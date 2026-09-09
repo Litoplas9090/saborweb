@@ -12,12 +12,13 @@ import { Spinner } from '../components/ui/Spinner.jsx'
 const PHONE_KEY = 'saborweb_phone'
 const LAST_SLUG_KEY = 'saborweb_last_slug'
 
-const STAGES = ['registrado', 'en_preparacion', 'preparado', 'entregado']
+const STAGES = ['registrado', 'en_preparacion', 'preparado']
 
 const STAGE_LABEL = {
   registrado: 'Registrado',
   en_preparacion: 'En preparación',
   preparado: '¡Preparado!',
+  // "entregado" es la etapa final interna del restaurante: solo se muestra en el badge
   entregado: 'Entregado',
 }
 
@@ -224,7 +225,7 @@ export default function OrderTracking() {
     <main className="min-h-screen bg-gray-50 pb-10">
       <header className="bg-amber-600 text-white">
         <div className="mx-auto max-w-2xl px-4 py-8">
-          <div className="flex items-center justify-between">
+          <div>
             {menuSlug ? (
               <Link to={`/${menuSlug}`} className="text-sm text-amber-200 hover:underline">
                 ← Volver al menú
@@ -232,11 +233,6 @@ export default function OrderTracking() {
             ) : (
               <Link to="/" className="text-sm text-amber-200 hover:underline">
                 ← SaborWeb
-              </Link>
-            )}
-            {menuSlug && (
-              <Link to="/" className="text-sm text-amber-200 hover:underline">
-                Inicio
               </Link>
             )}
           </div>
@@ -343,7 +339,11 @@ export default function OrderTracking() {
                     {/* Indicador de progreso por etapas */}
                     <div className="mt-4 flex items-center">
                       {STAGES.map((stage, idx) => {
-                        const currentIdx = STAGES.indexOf(order.status)
+                        // "entregado" (cierre interno del restaurante) se dibuja completado
+                        const currentIdx =
+                          order.status === 'entregado'
+                            ? STAGES.length - 1
+                            : STAGES.indexOf(order.status)
                         const reached = idx <= currentIdx
                         return (
                           <div key={stage} className="flex flex-1 items-center">
