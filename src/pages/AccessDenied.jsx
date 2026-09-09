@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Button from '../components/ui/Button.jsx'
+import Backdrop from '../components/ui/Backdrop.jsx'
 
 // Usuario autenticado pero sin rol asignado en profiles
 export default function AccessDenied() {
   const { signOut } = useAuth()
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
+    <main className="relative isolate flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
+      <Backdrop variant="admin" />
       <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
         Acceso denegado
       </h1>

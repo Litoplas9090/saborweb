@@ -167,7 +167,8 @@ export default function MenuPage() {
 
   if (status === 'notfound') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 p-6 text-center">
+      <main className="relative isolate flex min-h-screen flex-col items-center justify-center gap-3 overflow-hidden p-6 text-center">
+        <Backdrop />
         <h1 className="text-2xl font-bold">Restaurante no encontrado</h1>
         <p className="text-gray-600">
           El enlace no corresponde a un restaurante activo de SaborWeb.
@@ -178,7 +179,8 @@ export default function MenuPage() {
 
   if (status === 'error') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
+      <main className="relative isolate flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden p-6 text-center">
+        <Backdrop />
         <h1 className="text-2xl font-bold">Algo salió mal</h1>
         <p className="text-gray-600">No pudimos cargar el menú.</p>
         <Button variant="brand" onClick={() => setReload((r) => r + 1)}>
