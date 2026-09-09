@@ -38,11 +38,13 @@ export default function Backdrop({ variant = 'warm' }) {
       aria-hidden
       className={`pointer-events-none absolute inset-0 -z-10 overflow-hidden ${GRADIENTS[variant]}`}
     >
-      {/* ingredientes flotando (muy tenues: ambiente sin tocar la legibilidad) */}
+      {/* ingredientes flotando. La capa externa flota (animación); la interna
+          crece al pasar el cursor. Como el fondo queda siempre detrás del
+          contenido, el hover solo responde en zonas libres de la pantalla. */}
       {floats.map((f) => (
         <span
           key={f.icon}
-          className="sw-float absolute select-none leading-none opacity-[0.06]"
+          className="sw-float absolute select-none"
           style={{
             top: f.top,
             left: f.left,
@@ -51,7 +53,9 @@ export default function Backdrop({ variant = 'warm' }) {
             animationDuration: f.duration,
           }}
         >
-          {f.icon}
+          <span className="block cursor-pointer leading-none opacity-25 transition-transform duration-300 ease-out hover:scale-125 hover:opacity-40">
+            {f.icon}
+          </span>
         </span>
       ))}
     </div>
